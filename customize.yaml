@@ -1,0 +1,27 @@
+homeassistant:
+  customize:
+    binary_sensor.workday:
+      friendly_name: "Dia laborable"
+      icon: mdi:briefcase
+    binary_sensor.vane_trabajo:
+      friendly_name: "Dia laborable Sonia"
+      icon: mdi:face-woman
+    binary_sensor.alejandro_colegio:
+      friendly_name: "Cole"
+      icon: mdi:baby-face-outline
+    binary_sensor.miguel_trabajo:
+      friendly_name: "Dia laborable Javi"
+      icon: mdi:face
+    binary_sensor.vane_vacaciones:
+      friendly_name: "Vacaciones Sonia"
+      icon: mdi:beach
+    binary_sensor.miguel_vacaciones:
+      friendly_name: "Vacaciones Javi"
+      icon: mdi:beach
+    binary_sensor.alejandro_vacaciones:
+      friendly_name: "Vacaciones Cole"
+      icon: beach
+    binary_sensor.dia_laborable:
+      states: ['on','off']
+
+

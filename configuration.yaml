@@ -1,0 +1,291 @@
+
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+  allowlist_external_dirs:
+    - /config
+    - /home
+    - /config/video
+    - /home/pi/homeassistant
+
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+# Seguimiento personas
+
+device_tracker:
+  - platform: bluetooth_tracker
+    interval_seconds: 60
+    consider_home: 180
+    new_device_defaults:
+      track_new_devices: false
+
+  - platform: bluetooth_le_tracker
+    interval_seconds: 60
+    consider_home: 180
+    new_device_defaults:
+      track_new_devices: false
+      
+  - platform: ping
+    hosts:
+      mvxp: 192.168.1.31
+      mvsp: 192.168.1.30
+      mvjp: 192.168.1.32
+
+#Habilitando Alexa
+alexa: !include alexa.yaml
+
+#Mensajes a telegram            
+telegram_bot:
+ - platform: polling
+   api_key: !secret telegram_bot_apy_key
+   allowed_chat_ids:
+     - !secret telegram_bot_chat_id
+     - !secret telegram_bot_chat_id2
+
+
+# Interruptor para levantar ordenador hp_javi
+switch:
+  - platform: wake_on_lan
+    mac: !secret wol_javi_mac
+    name: PCJ
+
+sensor:
+  # Sensores raspberry. #
+
+  - platform: command_line
+    name: Raspberry Temp
+    command: "cat /sys/class/thermal/thermal_zone0/temp"
+    unit_of_measurement: "°C"
+    value_template: '{{ value | multiply(0.001) | round(1) }}'
+
+  - platform: systemmonitor
+    resources:
+      - type: disk_use_percent
+        arg: /
+      - type: memory_free
+      - type: disk_free
+        arg: /
+      - type: processor_use
+
+  - platform: template
+    sensors:
+      en_casa:
+        friendly_name: 'Alguien en casa'
+        value_template: >-
+          {%- if (is_state("person.javi","home") or is_state("person.sonia","home") or is_state("person.xavi","home"))  -%}
+             True
+          {%- else -%}
+            False
+          {%- endif -%}
+        # entity_id:
+        #   - person.javi
+        #   - person.sonia
+        #   - person.xavi
+
+  # - platform: integration
+  #   source: sensor.efergy_potencia_instantanea
+  #   name: consumo_casa
+  #   unit_prefix: k
+  #   round: 2
+
+  # - platform: integration
+  #   source: sensor.enchufe_servidor_potencia
+  #   name: consumo_servidor
+  #   unit_prefix: k
+  #   round: 2
+
+  # - platform: template
+  #   sensors:
+  #     en_casa:
+  #       friendly_name: 'Alguien en casa'
+  #       value_template: >-
+  #         {%- if (is_state("person.javier","home") or is_state("person.sonia","home") or is_state("person.xavi","home"))  -%}
+  #            True
+  #         {%- else -%}
+  #           False
+  #         {%- endif -%}
+  #       # entity_id:
+  #       #   - person.javier
+  #       #   - person.sonia
+  #       #   - person.xavi
+
+  # - platform: min_max
+  #   type: mean
+  #   name: "Temperatura media en casa"
+  #   round_digits: 1
+  #   entity_ids:
+  #     - sensor.temperature_6
+  #     - sensor.temperature_9
+  #     - sensor.temperature_12
+  #     - sensor.temperature_15
+
+  # - platform: template
+  #   sensors:
+  #     electricperiod:
+  #       friendly_name: "Periodo Eléctrico"
+  #       unique_id: electricperiod
+  #       value_template: >-
+  #         {% set values = {"P1": "Punta", "P2": "Llano", "P3": "Valle"} %}
+  #         {{ values[state_attr('sensor.pvpc', 'period')] }}
+  #       icon_template: >-
+  #         {% set icons = {"P1": "mdi:brightness-5", "P2": "mdi:brightness-6", "P3": "mdi:brightness-2"} %}
+  #         {{ icons[state_attr('sensor.pvpc', 'period')] }}
+    
+  - platform: season
+  - platform: time_date
+    display_options:
+      - 'time'
+
+  # - platform: edata
+  #   username: !secret edata_username
+  #   password: !secret edata_password
+  #   cups: !secret edata_cups
+  #   experimental: true
+
+# Días laborables y festivos nacionales y de Catalunya (CT)
+binary_sensor:
+  - platform: workday
+    country: ESP
+    province: CT
+    
+  - platform: template
+    sensors:
+      sonia_vacaciones:
+        value_template: >-
+          {{ is_state_attr('calendar.sonia_vacaciones', 'message', 'Vacaciones Sonia') and state_attr('calendar.sonia_vacaciones', 'start_time') < now().strftime('%Y-%m-%d %H:%M:%S') and state_attr('calendar.sonia_vacaciones', 'end_time') > now().strftime('%Y-%m-%d %H:%M:%S') }}
+      javi_vacaciones:
+        value_template: >-
+          {{ is_state_attr('calendar.javi_vacaciones', 'message', 'Vacaciones Javi') and state_attr('calendar.javi_vacaciones', 'start_time') < now().strftime('%Y-%m-%d %H:%M:%S') and state_attr('calendar.javi_vacaciones', 'end_time') > now().strftime('%Y-%m-%d %H:%M:%S') }}
+      cole_vacaciones:
+        value_template: >-
+          {{ is_state_attr('calendar.cole_vacaciones', 'message', 'Vacaciones Cole') and state_attr('calendar.cole_vacaciones', 'start_time') < now().strftime('%Y-%m-%d %H:%M:%S') and state_attr('calendar.cole_vacaciones', 'end_time') > now().strftime('%Y-%m-%d %H:%M:%S') }}
+      sonia_trabajo:
+        value_template: >-
+          {{ is_state('binary_sensor.sonia_vacaciones', 'off') and is_state('binary_sensor.workday_sensor', 'on') }}
+      javier_trabajo:
+        value_template: >-
+          {{ is_state('binary_sensor.javi_vacaciones', 'off') and is_state('binary_sensor.workday_sensor', 'on') }}
+      hay_cole:
+        value_template: >-
+          {{ is_state('binary_sensor.cole_vacaciones', 'off') and is_state('binary_sensor.workday_sensor', 'on') }}
+
+  - platform: template
+    sensors:
+      dia_laborable:
+        value_template: >-
+          {{ is_state('binary_sensor.sonia_vacaciones', 'off') and is_state('binary_sensor.workday_sensor', 'on') and  is_state('binary_sensor.javi_vacaciones', 'off') and is_state('binary_sensor.workday_sensor', 'on') }}
+      # dia_no_laborable:
+      #   value_template: >-
+      #     {{ is_state('binary_sensor.sonia_vacaciones', 'on') or is_state('binary_sensor.workday_sensor', 'off') or is_state('binary_sensor.javi_vacaciones', 'on') or is_state('binary_sensor.workday_sensor', 'off') }}
+
+    
+#Habilitando Google Calendar
+google:
+  client_id: !secret google_calendar_client_id
+  client_secret: !secret google_calendar_client_secret
+
+cover:
+  - platform: group
+    name: persianas
+    entities:
+      - cover.persiana_salon
+      - cover.persiana_despacho
+      - cover.persiana_dormitorio
+
+input_boolean:
+  javi_not_home:
+    name: "Notifica cuando papá no está en casa"
+    icon: mdi:car
+
+#Eliminando basura del historial
+history:
+  exclude:
+    domains:
+      - automation
+      - updater
+      - device_tracker
+      - sun
+      - weather
+      - zone
+      - scene
+      - script
+  
+android_ip_webcam:
+  - host: !secret webcam_host
+    port: !secret webcam_port
+    username: !secret webcam_username
+    password: !secret webcam_password
+    sensors:
+      - battery_level
+      - light
+      - motion
+      - proximity
+      - sound
+      - video_connections
+    switches:
+      - motion_detect
+      - night_vision
+      - torch
+      - video_recording
+
+# Termostatos radiadores #
+climate:
+  # Habitación Matrimonio
+  - platform: generic_thermostat
+    name: termostato_dormitorio
+    unique_id: termostato_dormitorio
+    heater: switch.radiador_dormitorio
+    target_sensor: sensor.temperatura_dormitorio
+    initial_hvac_mode: "off"
+    away_temp: 17
+    target_temp: 20
+    min_temp: 17
+    max_temp: 21
+
+  # Salón
+  - platform: generic_thermostat
+    name: termostato_salon
+    unique_id: termostato_salon
+    heater: switch.radiador_salon
+    target_sensor: sensor.temperatura_salon
+    initial_hvac_mode: "off"
+    away_temp: 17
+    target_temp: 20
+    min_temp: 17
+    max_temp: 21
+
+  # Habitación Xavi
+  - platform: generic_thermostat
+    name: termostato_xavi
+    unique_id: termostato_xavi
+    heater: switch.radiador_xavi
+    target_sensor: sensor.temperatura_xavi
+    initial_hvac_mode: "off"
+    away_temp: 17
+    target_temp: 20
+    min_temp: 17
+    max_temp: 21
+
+  # Habitación Éric
+  - platform: generic_thermostat
+    name: termostato_eric
+    unique_id: termostato_eric
+    heater: switch.radiador_eric
+    target_sensor: sensor.temperatura_eric
+    initial_hvac_mode: "off"
+    away_temp: 17
+    target_temp: 20
+    min_temp: 17
+    max_temp: 21
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.18.0.0/24
