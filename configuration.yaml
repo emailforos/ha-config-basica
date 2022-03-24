@@ -51,10 +51,10 @@ telegram_bot:
      - !secret telegram_bot_chat_id2
 
 
-# Interruptor para levantar ordenador hp_javi
+# Interruptor para levantar ordenador hp_javi - Poner la MAC que toque
 switch:
   - platform: wake_on_lan
-    mac: 18:60:24:73:81:59
+    mac: AA:BB:CC:DD:EE:FF
     name: PCJ
     host: 192.168.1.20
 
