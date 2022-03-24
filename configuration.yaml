@@ -2,11 +2,12 @@
 # Configure a default setup of Home Assistant (frontend, api, etc)
 default_config:
 
+homeassistant:
+
   allowlist_external_dirs:
-    - /config
-    - /home
-    - /config/video
-    - /home/pi/homeassistant
+    # - /config
+    # - /home
+    - /config/www/grabaciones/camara_salon
 
 group: !include groups.yaml
 automation: !include automations.yaml
@@ -30,7 +31,7 @@ device_tracker:
     interval_seconds: 60
     consider_home: 180
     new_device_defaults:
-      track_new_devices: false
+      track_new_devices: true
       
   - platform: ping
     hosts:
@@ -53,8 +54,9 @@ telegram_bot:
 # Interruptor para levantar ordenador hp_javi
 switch:
   - platform: wake_on_lan
-    mac: !secret wol_javi_mac
+    mac: 18:60:24:73:81:59
     name: PCJ
+    host: 192.168.1.20
 
 sensor:
   # Sensores raspberry. #
@@ -74,26 +76,27 @@ sensor:
         arg: /
       - type: processor_use
 
+# Sensor si alguien de la familia en casa #
   - platform: template
     sensors:
       en_casa:
         friendly_name: 'Alguien en casa'
         value_template: >-
-          {%- if (is_state("person.javi","home") or is_state("person.sonia","home") or is_state("person.xavi","home"))  -%}
-             True
+          {%- if (is_state("person.javier","home") or is_state("person.sonia","home") or is_state("person.xavi","home"))  -%}
+            true
           {%- else -%}
-            False
+            false
           {%- endif -%}
         # entity_id:
-        #   - person.javi
+        #   - person.javier
         #   - person.sonia
         #   - person.xavi
 
-  # - platform: integration
-  #   source: sensor.efergy_potencia_instantanea
-  #   name: consumo_casa
-  #   unit_prefix: k
-  #   round: 2
+  - platform: integration
+    source: sensor.consumo_potencia_casa
+    name: consumo_casa
+    unit_prefix: k
+    round: 2
 
   # - platform: integration
   #   source: sensor.enchufe_servidor_potencia
@@ -101,30 +104,15 @@ sensor:
   #   unit_prefix: k
   #   round: 2
 
-  # - platform: template
-  #   sensors:
-  #     en_casa:
-  #       friendly_name: 'Alguien en casa'
-  #       value_template: >-
-  #         {%- if (is_state("person.javier","home") or is_state("person.sonia","home") or is_state("person.xavi","home"))  -%}
-  #            True
-  #         {%- else -%}
-  #           False
-  #         {%- endif -%}
-  #       # entity_id:
-  #       #   - person.javier
-  #       #   - person.sonia
-  #       #   - person.xavi
-
-  # - platform: min_max
-  #   type: mean
-  #   name: "Temperatura media en casa"
-  #   round_digits: 1
-  #   entity_ids:
-  #     - sensor.temperature_6
-  #     - sensor.temperature_9
-  #     - sensor.temperature_12
-  #     - sensor.temperature_15
+  - platform: min_max
+    type: mean
+    name: "Temperatura media en casa"
+    round_digits: 1
+    entity_ids:
+      - sensor.temperatura_dormitorio
+      - sensor.temperatura_salon
+      - sensor.temperatura_habitacion_xavi
+      - sensor.temperatura_habitacion_eric
 
   # - platform: template
   #   sensors:
@@ -142,17 +130,18 @@ sensor:
   - platform: time_date
     display_options:
       - 'time'
-
+# Eliminado: comprobar 5_03_2022 
   # - platform: edata
   #   username: !secret edata_username
   #   password: !secret edata_password
   #   cups: !secret edata_cups
-  #   experimental: true
+  #   experimental: false
+  #   debug: true
 
 # Días laborables y festivos nacionales y de Catalunya (CT)
 binary_sensor:
   - platform: workday
-    country: ESP
+    country: ES
     province: CT
     
   - platform: template
@@ -194,15 +183,16 @@ google:
 cover:
   - platform: group
     name: persianas
+    unique_id: persianas
     entities:
       - cover.persiana_salon
       - cover.persiana_despacho
       - cover.persiana_dormitorio
 
-input_boolean:
-  javi_not_home:
-    name: "Notifica cuando papá no está en casa"
-    icon: mdi:car
+# input_boolean:
+#   javi_not_home:
+#     name: "Notifica cuando papá no está en casa"
+#     icon: mdi:car
 
 #Eliminando basura del historial
 history:
@@ -216,24 +206,31 @@ history:
       - zone
       - scene
       - script
+    entities:
+      - calendar.partidos_manyanet
+    entity_globs:
+      - binary_sensor.mvja_*
+
+recorder:
+  purge_keep_days: 15
   
-android_ip_webcam:
-  - host: !secret webcam_host
-    port: !secret webcam_port
-    username: !secret webcam_username
-    password: !secret webcam_password
-    sensors:
-      - battery_level
-      - light
-      - motion
-      - proximity
-      - sound
-      - video_connections
-    switches:
-      - motion_detect
-      - night_vision
-      - torch
-      - video_recording
+# android_ip_webcam:
+#   - host: !secret webcam_host
+#     port: !secret webcam_port
+#     username: !secret webcam_username
+#     password: !secret webcam_password
+#     sensors:
+#       - battery_level
+#       - light
+#       - motion
+#       - proximity
+#       - sound
+#       - video_connections
+#     switches:
+#       - motion_detect
+#       - night_vision
+#       - torch
+#       - video_recording
 
 # Termostatos radiadores #
 climate:
@@ -243,11 +240,11 @@ climate:
     unique_id: termostato_dormitorio
     heater: switch.radiador_dormitorio
     target_sensor: sensor.temperatura_dormitorio
-    initial_hvac_mode: "off"
+    initial_hvac_mode: "heat"
     away_temp: 17
-    target_temp: 20
-    min_temp: 17
-    max_temp: 21
+    target_temp: 21
+    min_temp: 15
+    max_temp: 23
 
   # Salón
   - platform: generic_thermostat
@@ -255,37 +252,61 @@ climate:
     unique_id: termostato_salon
     heater: switch.radiador_salon
     target_sensor: sensor.temperatura_salon
-    initial_hvac_mode: "off"
+    initial_hvac_mode: "heat"
     away_temp: 17
-    target_temp: 20
-    min_temp: 17
-    max_temp: 21
+    target_temp: 21
+    min_temp: 15
+    max_temp: 23
 
   # Habitación Xavi
   - platform: generic_thermostat
     name: termostato_xavi
     unique_id: termostato_xavi
     heater: switch.radiador_xavi
-    target_sensor: sensor.temperatura_xavi
-    initial_hvac_mode: "off"
+    target_sensor: sensor.temperatura_habitacion_xavi
+    initial_hvac_mode: "heat"
     away_temp: 17
-    target_temp: 20
-    min_temp: 17
-    max_temp: 21
+    target_temp: 21
+    min_temp: 15
+    max_temp: 23
 
   # Habitación Éric
   - platform: generic_thermostat
     name: termostato_eric
     unique_id: termostato_eric
     heater: switch.radiador_eric
-    target_sensor: sensor.temperatura_eric
-    initial_hvac_mode: "off"
+    target_sensor: sensor.temperatura_habitacion_eric
+    initial_hvac_mode: "heat"
     away_temp: 17
-    target_temp: 20
-    min_temp: 17
-    max_temp: 21
+    target_temp: 21
+    min_temp: 15
+    max_temp: 23
+
+# Gestionado los contenedores
+monitor_docker:
+  - name: Docker
+    containers:
+      - qbittorrent
+      - ha
+      - deconz
+      - radarr
+      - sonarr
+      - bazarr
+      - wireguard
+      - amule
+    monitored_conditions:
+      - state
+      - status
+      - memory
+
+# Registro logs.
+# logger:
+#   logs:
+#     custom_components.monitor_docker: debug
 
 http:
   use_x_forwarded_for: true
   trusted_proxies:
+    - 172.19.0.0/24
+    - 192.168.1.0/24
     - 172.18.0.0/24
