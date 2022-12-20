@@ -19,30 +19,19 @@ tts:
   - platform: google_translate
 
 # Seguimiento personas
-
 device_tracker:
-  - platform: bluetooth_tracker
-    interval_seconds: 60
-    consider_home: 180
-    new_device_defaults:
-      track_new_devices: false
-
-  - platform: bluetooth_le_tracker
-    interval_seconds: 60
-    consider_home: 180
-    new_device_defaults:
-      track_new_devices: true
       
   - platform: ping
     hosts:
       mvxp: 192.168.1.31
       mvsp: 192.168.1.30
       mvjp: 192.168.1.32
+      mvep: 192.168.1.34
 
-#Habilitando Alexa
+# Habilitando Alexa
 alexa: !include alexa.yaml
 
-#Mensajes a telegram            
+# Mensajes a telegram            
 telegram_bot:
  - platform: polling
    api_key: !secret telegram_bot_apy_key
@@ -51,10 +40,10 @@ telegram_bot:
      - !secret telegram_bot_chat_id2
 
 
-# Interruptor para levantar ordenador hp_javi - Poner la MAC que toque
+# Interruptor para levantar ordenador hp_javi
 switch:
   - platform: wake_on_lan
-    mac: AA:BB:CC:DD:EE:FF
+    mac: !secret wol_javi_mac
     name: PCJ
     host: 192.168.1.20
 
@@ -95,48 +84,14 @@ sensor:
   - platform: integration
     source: sensor.consumo_potencia_casa
     name: consumo_casa
+    unique_id: consumo_casa
     unit_prefix: k
     round: 2
 
-  # - platform: integration
-  #   source: sensor.enchufe_servidor_potencia
-  #   name: consumo_servidor
-  #   unit_prefix: k
-  #   round: 2
-
-  - platform: min_max
-    type: mean
-    name: "Temperatura media en casa"
-    round_digits: 1
-    entity_ids:
-      - sensor.temperatura_dormitorio
-      - sensor.temperatura_salon
-      - sensor.temperatura_habitacion_xavi
-      - sensor.temperatura_habitacion_eric
-
-  # - platform: template
-  #   sensors:
-  #     electricperiod:
-  #       friendly_name: "Periodo Eléctrico"
-  #       unique_id: electricperiod
-  #       value_template: >-
-  #         {% set values = {"P1": "Punta", "P2": "Llano", "P3": "Valle"} %}
-  #         {{ values[state_attr('sensor.pvpc', 'period')] }}
-  #       icon_template: >-
-  #         {% set icons = {"P1": "mdi:brightness-5", "P2": "mdi:brightness-6", "P3": "mdi:brightness-2"} %}
-  #         {{ icons[state_attr('sensor.pvpc', 'period')] }}
-    
-  - platform: season
   - platform: time_date
     display_options:
       - 'time'
-# Eliminado: comprobar 5_03_2022 
-  # - platform: edata
-  #   username: !secret edata_username
-  #   password: !secret edata_password
-  #   cups: !secret edata_cups
-  #   experimental: false
-  #   debug: true
+
 
 # Días laborables y festivos nacionales y de Catalunya (CT)
 binary_sensor:
@@ -175,25 +130,6 @@ binary_sensor:
       #     {{ is_state('binary_sensor.sonia_vacaciones', 'on') or is_state('binary_sensor.workday_sensor', 'off') or is_state('binary_sensor.javi_vacaciones', 'on') or is_state('binary_sensor.workday_sensor', 'off') }}
 
     
-#Habilitando Google Calendar
-google:
-  client_id: !secret google_calendar_client_id
-  client_secret: !secret google_calendar_client_secret
-
-cover:
-  - platform: group
-    name: persianas
-    unique_id: persianas
-    entities:
-      - cover.persiana_salon
-      - cover.persiana_despacho
-      - cover.persiana_dormitorio
-
-# input_boolean:
-#   javi_not_home:
-#     name: "Notifica cuando papá no está en casa"
-#     icon: mdi:car
-
 #Eliminando basura del historial
 history:
   exclude:
@@ -213,27 +149,10 @@ history:
 
 recorder:
   purge_keep_days: 15
-  
-# android_ip_webcam:
-#   - host: !secret webcam_host
-#     port: !secret webcam_port
-#     username: !secret webcam_username
-#     password: !secret webcam_password
-#     sensors:
-#       - battery_level
-#       - light
-#       - motion
-#       - proximity
-#       - sound
-#       - video_connections
-#     switches:
-#       - motion_detect
-#       - night_vision
-#       - torch
-#       - video_recording
 
-# Termostatos radiadores #
 climate:
+  # Termostatos radiadores #
+
   # Habitación Matrimonio
   - platform: generic_thermostat
     name: termostato_dormitorio
@@ -294,19 +213,57 @@ monitor_docker:
       - bazarr
       - wireguard
       - amule
+      - prowlarr
+      - jackett
+      - syncthing
+      - diun
+      - mqtt
     monitored_conditions:
+      - version
       - state
       - status
+      - containers_1cpu_percentage
+      - containers_memory_percentage
+      - memory_percentage
       - memory
+      - cpu_percentage
+
+# Example configuration.yaml entry
+# mqtt:  
+#   switch:
+#     - unique_id: switchbot
+#       name: "Boton AC"
+#       state_topic: "homeassistant/switch/switchbot/c6:33:14:da:a5:9d/state"
+#       command_topic: "homeassistant/switch/switchbot/c6:33:14:da:a5:9d/set"
+#       payload_on: "ON"
+#       payload_off: "OFF"
+#       state_on: "ON"
+#       state_off: "OFF"
+#       optimistic: false
+#       qos: 0
+#       retain: true
+
+# Convertir atributo potencia en sensor potencia
+template:
+  - sensor:
+    - name: "Potencia Instantanea Servidor"
+      state: "{{ state_attr('switch.localtuya_enchufe_servidor', 'current_consumption')|float(14.1) }}"
+      unique_id: potencia_instantanea_servidor
+      unit_of_measurement: 'W'
+      device_class: power
 
 # Registro logs.
-# logger:
-#   logs:
-#     custom_components.monitor_docker: debug
+logger:
+  default: info
+  logs:
+  #  homeassistant.components.mqtt: debug
+  #   # log level for MQTT integration
+  #   homeassistant.components.nut: debug
+  #     # custom_components.monitor_docker: debug
 
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 172.19.0.0/24
+    - 172.20.0.0/24
     - 192.168.1.0/24
     - 172.18.0.0/24
